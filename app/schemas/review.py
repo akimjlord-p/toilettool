@@ -57,6 +57,7 @@ class ReviewResponse(BaseModel):
     score_vibe: int
     total_score: int
     comment: str | None
+    is_deleted: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}
