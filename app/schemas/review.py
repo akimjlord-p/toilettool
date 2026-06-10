@@ -13,6 +13,12 @@ class ReviewCreate(BaseModel):
     score_privacy: int
     score_vibe: int
     comment: str | None = None
+    photos: list[str] = []  # до 3 Telegram file_id
+
+    @field_validator("photos")
+    def check_photos(cls, v):
+        assert len(v) <= 3, "Максимум 3 фото"
+        return v
 
     @field_validator("score_cleanliness")
     def check_cleanliness(cls, v):
@@ -58,9 +64,16 @@ class ReviewResponse(BaseModel):
     total_score: int
     comment: str | None
     is_deleted: bool
+    photos: list[str] = []
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_orm_with_photos(cls, review) -> "ReviewResponse":
+        obj = cls.model_validate(review)
+        obj.photos = [p.file_id for p in (review.photos or [])]
+        return obj
 
 
 class DeleteReviewRequest(BaseModel):

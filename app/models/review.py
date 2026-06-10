@@ -33,3 +33,4 @@ class Review(Base, UUIDMixin, TimestampMixin):
     toilet: Mapped["Toilet"] = relationship("Toilet", back_populates="reviews")
     user: Mapped["User"] = relationship("User", back_populates="reviews", foreign_keys=[user_id])
     deleted_by: Mapped["User | None"] = relationship("User", foreign_keys=[deleted_by_id])
+    photos: Mapped[list["ReviewPhoto"]] = relationship("ReviewPhoto", back_populates="review", order_by="ReviewPhoto.position")

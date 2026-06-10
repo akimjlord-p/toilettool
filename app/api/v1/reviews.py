@@ -23,6 +23,7 @@ def _to_review_data(body: ReviewCreate) -> ReviewData:
         score_privacy=body.score_privacy,
         score_vibe=body.score_vibe,
         comment=body.comment,
+        photos=body.photos,
     )
 
 

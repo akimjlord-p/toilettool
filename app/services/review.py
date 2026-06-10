@@ -1,10 +1,11 @@
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.moderator_review import ModeratorReview
 from app.models.review import Review
+from app.models.review_photo import ReviewPhoto
 from app.models.user import User
 from app.repositories.moderator_review import ModeratorReviewRepository
 from app.repositories.review import ReviewRepository
@@ -29,6 +30,7 @@ class ReviewData:
     score_privacy: int
     score_vibe: int
     comment: str | None = None
+    photos: list[str] = field(default_factory=list)  # до 3 Telegram file_id
 
 
 def _validate_scores(data: ReviewData) -> None:
@@ -88,7 +90,15 @@ class ReviewService:
             total_score=_calc_total(data),
             comment=data.comment,
         )
-        return await self.repo.create(review)
+        created = await self.repo.create(review)
+
+        for i, file_id in enumerate(data.photos[:3], start=1):
+            photo = ReviewPhoto(review_id=created.id, file_id=file_id, position=i)
+            self.repo.session.add(photo)
+        if data.photos:
+            await self.repo.session.commit()
+
+        return created
 
     async def create_moderator_review(
         self,
