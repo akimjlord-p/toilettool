@@ -134,3 +134,84 @@ async def test_deleted_reviews_not_in_list(session):
     reviews = await service.get_toilet_reviews(toilet.id)
     assert len(reviews) == 1
     assert reviews[0].user_id == user2.id
+
+
+@pytest.mark.asyncio
+async def test_create_review_with_photos(session):
+    """Отзыв сохраняется с фото (file_id строки)."""
+    user = await _make_user(session, 30001)
+    toilet = await _make_toilet(session, user, "ул. Фотографов, 1")
+    service = ReviewService(session)
+
+    data_with_photos = ReviewData(
+        score_cleanliness=20,
+        score_supplies=15,
+        score_smell=18,
+        score_equipment=12,
+        score_privacy=4,
+        score_vibe=4,
+        photos=["file_id_aaa", "file_id_bbb"],
+    )
+
+    review = await service.create_review(user=user, toilet_id=toilet.id, data=data_with_photos)
+    assert review.id is not None
+
+    # Загружаем с фото
+    from sqlalchemy import select
+    from app.models.review_photo import ReviewPhoto
+    result = await session.execute(
+        select(ReviewPhoto).where(ReviewPhoto.review_id == review.id).order_by(ReviewPhoto.position)
+    )
+    photos = result.scalars().all()
+
+    assert len(photos) == 2
+    assert photos[0].file_id == "file_id_aaa"
+    assert photos[0].position == 1
+    assert photos[1].file_id == "file_id_bbb"
+    assert photos[1].position == 2
+
+
+@pytest.mark.asyncio
+async def test_photos_capped_at_three(session):
+    """Сохраняется максимум 3 фото, лишние обрезаются."""
+    user = await _make_user(session, 30002)
+    toilet = await _make_toilet(session, user, "ул. Переполненная, 2")
+    service = ReviewService(session)
+
+    data_too_many = ReviewData(
+        score_cleanliness=20,
+        score_supplies=15,
+        score_smell=18,
+        score_equipment=12,
+        score_privacy=4,
+        score_vibe=4,
+        photos=["fid_1", "fid_2", "fid_3", "fid_4", "fid_5"],
+    )
+
+    review = await service.create_review(user=user, toilet_id=toilet.id, data=data_too_many)
+
+    from sqlalchemy import select
+    from app.models.review_photo import ReviewPhoto
+    result = await session.execute(
+        select(ReviewPhoto).where(ReviewPhoto.review_id == review.id)
+    )
+    photos = result.scalars().all()
+    assert len(photos) == 3
+
+
+@pytest.mark.asyncio
+async def test_review_without_photos(session):
+    """Отзыв без фото создаётся нормально."""
+    user = await _make_user(session, 30003)
+    toilet = await _make_toilet(session, user, "ул. Безфото, 3")
+    service = ReviewService(session)
+
+    review = await service.create_review(user=user, toilet_id=toilet.id, data=VALID_DATA)
+
+    from sqlalchemy import select
+    from app.models.review_photo import ReviewPhoto
+    result = await session.execute(
+        select(ReviewPhoto).where(ReviewPhoto.review_id == review.id)
+    )
+    photos = result.scalars().all()
+    assert len(photos) == 0

@@ -13,12 +13,13 @@ from main import app
 from app.database import get_session
 from app.api.deps import get_current_user, get_moderator
 
-TEST_DATABASE_URL = "postgresql+asyncpg://toilettool:tt_secret_2024@147.45.107.85:5432/toilettool_test"
+TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5433/toilettool_test"
 TEST_BOT_SECRET = "test_secret"
 
 TABLES_TO_TRUNCATE = [
     "toilet_of_month",
     "moderator_reviews",
+    "review_photos",
     "reviews",
     "toilets",
     "users",
@@ -354,3 +355,64 @@ async def test_toilet_of_month_empty(client):
     r = await client.get("/api/v1/top/month")
     assert r.status_code == 200
     assert r.json() is None
+
+
+# ─── photos ────────────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_create_review_with_photos(client):
+    """Отзыв с фото принимается, photos возвращаются в ответе."""
+    toilet = await client.post(
+        "/api/v1/toilets", headers=BASE_HEADERS, json={"address": "ул. Фото, 1"}
+    )
+    toilet_id = toilet.json()["id"]
+
+    r = await client.post(
+        "/api/v1/reviews",
+        headers=BASE_HEADERS,
+        json={
+            **REVIEW_PAYLOAD,
+            "toilet_id": toilet_id,
+            "photos": ["AgACAgIxxx1", "AgACAgIxxx2"],
+        },
+    )
+    assert r.status_code == 201
+    data = r.json()
+    assert data["photos"] == ["AgACAgIxxx1", "AgACAgIxxx2"]
+
+
+@pytest.mark.asyncio
+async def test_create_review_too_many_photos(client):
+    """Больше 3 фото — ошибка валидации."""
+    toilet = await client.post(
+        "/api/v1/toilets", headers=BASE_HEADERS, json={"address": "ул. Много фото, 2"}
+    )
+    toilet_id = toilet.json()["id"]
+
+    r = await client.post(
+        "/api/v1/reviews",
+        headers=BASE_HEADERS,
+        json={
+            **REVIEW_PAYLOAD,
+            "toilet_id": toilet_id,
+            "photos": ["fid1", "fid2", "fid3", "fid4"],
+        },
+    )
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_review_no_photos(client):
+    """Отзыв без фото — photos пустой список."""
+    toilet = await client.post(
+        "/api/v1/toilets", headers=BASE_HEADERS, json={"address": "ул. Без фото, 3"}
+    )
+    toilet_id = toilet.json()["id"]
+
+    r = await client.post(
+        "/api/v1/reviews",
+        headers=BASE_HEADERS,
+        json={**REVIEW_PAYLOAD, "toilet_id": toilet_id},
+    )
+    assert r.status_code == 201
+    assert r.json()["photos"] == []

@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession, ModeratorUser
+from app.models.review import Review
 from app.schemas.review import (
     DeleteReviewRequest,
     ModeratorReviewResponse,
@@ -12,6 +13,25 @@ from app.schemas.review import (
 from app.services.review import ReviewData, ReviewService
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
+
+
+def _serialize_review(review: Review) -> ReviewResponse:
+    return ReviewResponse.model_construct(
+        id=review.id,
+        toilet_id=review.toilet_id,
+        user_id=review.user_id,
+        score_cleanliness=review.score_cleanliness,
+        score_supplies=review.score_supplies,
+        score_smell=review.score_smell,
+        score_equipment=review.score_equipment,
+        score_privacy=review.score_privacy,
+        score_vibe=review.score_vibe,
+        total_score=review.total_score,
+        comment=review.comment,
+        is_deleted=review.is_deleted,
+        photos=[p.file_id for p in (review.photos or [])],
+        created_at=review.created_at,
+    )
 
 
 def _to_review_data(body: ReviewCreate) -> ReviewData:
@@ -43,7 +63,7 @@ async def create_review(
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    return review
+    return _serialize_review(review)
 
 
 @router.post("/moderator", response_model=ModeratorReviewResponse, status_code=status.HTTP_201_CREATED)
@@ -82,14 +102,15 @@ async def delete_review(
         )
     except (ValueError, PermissionError) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    return review
+    return _serialize_review(review)
 
 
 @router.get("/toilet/{toilet_id}", response_model=list[ReviewResponse])
 async def get_toilet_reviews(toilet_id: uuid.UUID, session: DbSession):
     """Список всех активных отзывов на туалет."""
     service = ReviewService(session)
-    return await service.get_toilet_reviews(toilet_id)
+    reviews = await service.get_toilet_reviews(toilet_id)
+    return [_serialize_review(r) for r in reviews]
 
 
 @router.get("/toilet/{toilet_id}/moderator", response_model=list[ModeratorReviewResponse])

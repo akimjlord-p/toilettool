@@ -97,6 +97,9 @@ class ReviewService:
             self.repo.session.add(photo)
         if data.photos:
             await self.repo.session.commit()
+            review_id = created.id  # сохраняем до expire
+            self.repo.session.expire(created)
+            created = await self.repo.get_by_id(review_id)
 
         return created
 
