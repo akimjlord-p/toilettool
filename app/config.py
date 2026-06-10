@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     database_url: str
     openai_api_key: str
     bot_secret: str
+    yandex_geocoder_key: str = ""
 
 
 settings = Settings()

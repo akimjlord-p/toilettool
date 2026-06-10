@@ -43,3 +43,6 @@ class ToiletCard(BaseModel):
 class ToiletSearchResponse(BaseModel):
     found: list[ToiletResponse]
     needs_creation: bool
+    normalized_address: str | None = None
+    lat: float | None = None
+    lon: float | None = None
