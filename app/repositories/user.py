@@ -42,3 +42,12 @@ class UserRepository(BaseRepository[User]):
         await self.session.commit()
         await self.session.refresh(user)
         return user
+
+    async def get_token_top(self, limit: int = 10) -> list[User]:
+        result = await self.session.execute(
+            select(User)
+            .where(User.balance > 0)
+            .order_by(User.balance.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())

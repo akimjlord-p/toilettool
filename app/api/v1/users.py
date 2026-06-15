@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession, ModeratorUser
-from app.schemas.user import AssignNicknameRequest, SetModeratorRequest, UserResponse
+from app.repositories.user import UserRepository
+from app.schemas.user import AssignNicknameRequest, SetModeratorRequest, TokenTopEntry, UserResponse
 from app.services.user import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -30,6 +31,23 @@ async def assign_nickname(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return updated
+
+
+@router.get("/tokens/top", response_model=list[TokenTopEntry])
+async def get_token_top(session: DbSession, limit: int = 10):
+    """Топ пользователей по балансу токенов."""
+    repo = UserRepository(session)
+    users = await repo.get_token_top(limit=min(limit, 50))
+    return [
+        TokenTopEntry(
+            telegram_id=u.telegram_id,
+            username=u.username,
+            nickname=u.nickname,
+            balance=u.balance,
+            rank=i + 1,
+        )
+        for i, u in enumerate(users)
+    ]
 
 
 @router.post("/set-moderator", response_model=UserResponse)

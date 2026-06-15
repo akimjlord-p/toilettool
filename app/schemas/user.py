@@ -10,7 +10,18 @@ class UserResponse(BaseModel):
     username: str | None
     nickname: str | None
     is_moderator: bool
+    balance: int = 0
     created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class TokenTopEntry(BaseModel):
+    telegram_id: int
+    username: str | None
+    nickname: str | None
+    balance: int
+    rank: int
 
     model_config = {"from_attributes": True}
 
