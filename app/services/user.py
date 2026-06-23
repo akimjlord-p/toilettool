@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,14 +19,22 @@ class UserService:
         """
         user = await self.repo.get_by_telegram_id(telegram_id)
         if user:
-            # Обновляем username если изменился в Telegram
+            today = date.today()
+            changed = False
             if username and user.username != username:
                 user.username = username
+                changed = True
+            if user.last_login_date != today:
+                user.last_login_date = today
+                user.balance += 10
+                changed = True
+            if changed:
                 await self.repo.session.commit()
                 await self.repo.session.refresh(user)
             return user, False
 
-        new_user = User(telegram_id=telegram_id, username=username)
+        today = date.today()
+        new_user = User(telegram_id=telegram_id, username=username, last_login_date=today)
         created = await self.repo.create(new_user)
         return created, True
 

@@ -3,14 +3,17 @@ from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.toilet_of_month import ToiletOfMonth
+from app.repositories.review import ReviewRepository
 from app.repositories.toilet import ToiletRepository
 from app.repositories.toilet_of_month import ToiletOfMonthRepository
+from app.repositories.user import UserRepository
 
 VALID_CRITERIA = {"cleanliness", "supplies", "smell", "equipment", "privacy", "vibe", "total"}
 
 
 class TopService:
     def __init__(self, session: AsyncSession) -> None:
+        self.session = session
         self.toilet_repo = ToiletRepository(session)
         self.tom_repo = ToiletOfMonthRepository(session)
 
@@ -68,7 +71,15 @@ class TopService:
             avg_score=winner["avg_score"],
             ai_comment=ai_comment,
         )
-        return await self.tom_repo.create(record)
+        result = await self.tom_repo.create(record)
+
+        review_repo = ReviewRepository(self.session)
+        user_repo = UserRepository(self.session)
+        reviews = await review_repo.get_by_toilet(winner["toilet"].id)
+        for review in reviews:
+            await user_repo.add_balance(review.user_id, 500)
+
+        return result
 
     async def get_history(self, limit: int = 12) -> list[ToiletOfMonth]:
         """Архив победителей за последние N месяцев."""

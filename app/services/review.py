@@ -9,6 +9,7 @@ from app.models.review_photo import ReviewPhoto
 from app.models.user import User
 from app.repositories.moderator_review import ModeratorReviewRepository
 from app.repositories.review import ReviewRepository
+from app.repositories.user import UserRepository
 
 # Максимальные значения по каждому критерию
 SCORE_LIMITS = {
@@ -78,6 +79,9 @@ class ReviewService:
 
         _validate_scores(data)
 
+        existing_count = await self.repo.count_by_toilet(toilet_id)
+        is_first_review = existing_count == 0
+
         review = Review(
             toilet_id=toilet_id,
             user_id=user.id,
@@ -100,6 +104,16 @@ class ReviewService:
             review_id = created.id  # сохраняем до expire
             self.repo.session.expire(created)
             created = await self.repo.get_by_id(review_id)
+
+        tokens = 100
+        tokens += 30 * len(data.photos[:3])
+        if data.comment:
+            tokens += 20
+        if is_first_review:
+            tokens += 50
+
+        user_repo = UserRepository(self.repo.session)
+        await user_repo.add_balance(user.id, tokens)
 
         return created
 
@@ -151,6 +165,9 @@ class ReviewService:
         review = await self.repo.soft_delete(review_id, moderator.id, reason)
         if not review:
             raise ValueError("Отзыв не найден или уже удалён")
+
+        user_repo = UserRepository(self.repo.session)
+        await user_repo.add_balance(review.user_id, -100)
 
         return review
 

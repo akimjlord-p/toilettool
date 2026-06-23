@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -42,6 +42,14 @@ class UserRepository(BaseRepository[User]):
         await self.session.commit()
         await self.session.refresh(user)
         return user
+
+    async def add_balance(self, user_id: uuid.UUID, amount: int) -> None:
+        await self.session.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(balance=User.balance + amount)
+        )
+        await self.session.commit()
 
     async def get_token_top(self, limit: int = 10) -> list[User]:
         result = await self.session.execute(
